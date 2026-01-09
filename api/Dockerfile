@@ -15,13 +15,13 @@ COPY src/package*.json ./src/
 WORKDIR /app/src
 RUN npm install
 
-# Copier le schema Prisma et regénérer le client pour Alpine
-COPY src/prisma ./prisma
-RUN npx prisma generate
-
-# Revenir à la racine et copier tout le code source
+# Copier tout le code source SAUF prisma (pour éviter l'écrasement)
 WORKDIR /app
 COPY src/ ./src/
+
+# Copier le schema Prisma et les migrations
+COPY src/prisma ./src/prisma
+RUN cd /app/src && npx prisma generate
 
 # Build l'application TypeScript (génère /app/src/dist)
 RUN npm --prefix ./src run build
