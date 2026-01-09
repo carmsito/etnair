@@ -3,7 +3,8 @@
 // Ajouter /api si pas déjà présent
 const getApiUrl = () => {
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+  // return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+  return `${baseUrl}api`
 };
 
 const API_URL = getApiUrl();

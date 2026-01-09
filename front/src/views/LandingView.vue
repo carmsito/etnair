@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import { ref, onMounted } from 'vue';
-import { announcesApi, type Announce } from '@/services/api';
+import { AnnouncesService, type Announce } from '@/services/api';
 
 const featuredAnnounces = ref<Announce[]>([]);
 const loading = ref(true);
 
 onMounted(async () => {
   try {
-    const response = await announcesApi.getAll({ limit: 6 });
-    if (Array.isArray(response)) {
-      featuredAnnounces.value = response.slice(0, 6);
-    } else if (response.data) {
-      featuredAnnounces.value = response.data.slice(0, 6);
+    const response = await AnnouncesService.getAnnounces({ limit: 6 });
+    if (response.announces) {
+      featuredAnnounces.value = response.announces.slice(0, 6);
     }
   } catch (err) {
     console.error('Error loading announces:', err);
