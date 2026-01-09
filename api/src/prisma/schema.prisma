@@ -1,0 +1,183 @@
+// Schéma de base Prisma pour PostgreSQL - ETNAir
+// Plateforme de location type Airbnb
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum pour les rôles utilisateur
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// Enum pour les types d'annonces (logements)
+enum AnnounceType {
+  APARTMENT   // Appartement
+  HOUSE       // Maison
+  VILLA       // Villa
+  STUDIO      // Studio
+  ROOM        // Chambre
+  OTHER       // Autre
+}
+
+// Enum pour le statut des réservations
+enum ReservationStatus {
+  PENDING     // En attente
+  CONFIRMED   // Confirmée
+  CANCELLED   // Annulée
+  COMPLETED   // Terminée
+}
+
+// Table des utilisateurs
+model User {
+  id          Int       @id @default(autoincrement())
+  username    String    @db.VarChar(100)
+  email       String    @unique @db.VarChar(255)
+  password    String    @db.VarChar(255)
+  phone       String?   @db.VarChar(20)
+  role        UserRole  @default(USER)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  announces    Announce[]
+  reservations Reservation[]
+  reviews      Review[]
+  favorites    Favorite[]
+  
+  @@map("users")
+}
+
+// Table des annonces (logements)
+model Announce {
+  id          Int           @id @default(autoincrement())
+  userId      Int           @map("user_id")
+  title       String        @db.VarChar(255)
+  description String?       @db.Text
+  type        AnnounceType
+  price       Float         // Prix par nuit
+  city        String?       @db.VarChar(100)
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  // Relations
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  info         AnnounceInfo?
+  pictures     AnnouncePicture[]
+  reservations Reservation[]
+  reviews      Review[]
+  favorites    Favorite[]
+  
+  @@map("announces")
+}
+
+// Table des informations détaillées des annonces
+model AnnounceInfo {
+  id           Int      @id @default(autoincrement())
+  announceId   Int      @unique @map("announces_id")
+  content      String?  @db.Text  // Description détaillée
+  address      String?  @db.VarChar(255)
+  postalCode   String?  @db.VarChar(20) @map("postal_code")
+  country      String?  @db.VarChar(100)
+  capacity     Int?     // Nombre de personnes max
+  bedrooms     Int?     // Nombre de chambres
+  bathrooms    Int?     // Nombre de salles de bain
+  amenities    String?  @db.Text  // Équipements (JSON stringifié ou liste)
+  rules        String?  @db.Text  // Règles du logement
+  
+  // Relations
+  announce     Announce @relation(fields: [announceId], references: [id], onDelete: Cascade)
+  
+  @@map("announces_info")
+}
+
+// Table des images des annonces
+model AnnouncePicture {
+  id          Int      @id @default(autoincrement())
+  announceId  Int      @map("announces_id")
+  isCover     Boolean  @default(false) @map("is_cover")
+  url         String   @db.VarChar(500)  // URL de l'image (S3/MinIO)
+  filename    String?  @db.VarChar(255)  // Nom du fichier original
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  announce    Announce @relation(fields: [announceId], references: [id], onDelete: Cascade)
+  
+  @@map("announces_pictures")
+}
+
+// Table des réservations
+model Reservation {
+  id           Int               @id @default(autoincrement())
+  userId       Int               @map("user_id")
+  announceId   Int               @map("announce_id")
+  title        String?           @db.VarChar(255)  // Titre/note de la réservation
+  totalPrice   Float             @map("total_price")
+  arriveAt     DateTime          @map("arrive_at")
+  leaveAt      DateTime          @map("leave_at")
+  reservedAt   DateTime          @default(now()) @map("reserved_at")
+  status       ReservationStatus @default(PENDING)
+  city         String?           @db.VarChar(100)
+  address      String?           @db.VarChar(255)
+  contactHost  String?           @db.VarChar(255) @map("contact_host")
+  guestCount   Int?              @default(1) @map("guest_count")
+  
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announce     Announce @relation(fields: [announceId], references: [id], onDelete: Cascade)
+  
+  @@map("reservations")
+}
+
+// Table des avis/commentaires sur les annonces
+model Review {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  announceId  Int      @map("announce_id")
+  rating      Int      // Note de 1 à 5
+  comment     String?  @db.Text  // Commentaire optionnel
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announce    Announce @relation(fields: [announceId], references: [id], onDelete: Cascade)
+  
+  // Un utilisateur ne peut laisser qu'un seul avis par annonce
+  @@unique([userId, announceId])
+  @@map("reviews")
+}
+
+// Table pour la blacklist des tokens JWT (bonus)
+model TokenBlacklist {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.Text
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("token_blacklist")
+}
+
+// Table des favoris
+model Favorite {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  announceId  Int      @map("announce_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announce    Announce @relation(fields: [announceId], references: [id], onDelete: Cascade)
+  
+  // Un utilisateur ne peut ajouter qu'une fois une annonce en favoris
+  @@unique([userId, announceId])
+  @@map("favorites")
+}

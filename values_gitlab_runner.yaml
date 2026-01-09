@@ -1,0 +1,31 @@
+gitlabUrl: "https://rendu-git.etna-alternance.net/"
+
+runnerToken: "glrt-BUKoNhuUSAnFHyVYAub6C286MQpwOmVpbDUKdDozCnU6MmV2FA.01.1e1i5s4m1"
+
+runners:
+  name: "minikube-runner"
+  tags: "kubernetes,minikube"
+  executor: kubernetes
+
+rbac:
+  create: true
+
+  config: |
+    [[runners]]
+      [runners.kubernetes]
+        namespace = "gitlab-runner"
+        image = "alpine:3.19"
+        poll_timeout = 600
+
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+
+
+serviceAccount:
+  create: true
+  name: gitlab-runner

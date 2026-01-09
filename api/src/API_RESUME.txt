@@ -1,0 +1,527 @@
+================================================================================
+                     🏠 ETNAir - API de Location Type Airbnb
+                              Résumé Complet
+================================================================================
+
+================================================================================
+                        📊 SCHÉMA DE BASE DE DONNÉES
+================================================================================
+
+TABLES ET RELATIONS:
+-------------------
+
+┌─────────────────┐       ┌─────────────────────┐       ┌──────────────────────┐
+│     USERS       │       │      ANNOUNCES      │       │   ANNOUNCES_INFO     │
+├─────────────────┤       ├─────────────────────┤       ├──────────────────────┤
+│ id (PK)         │──┐    │ id (PK)             │───────│ id (PK)              │
+│ username        │  │    │ user_id (FK)        │       │ announces_id (FK,UQ) │
+│ email (UNIQUE)  │  └───►│ title               │       │ content              │
+│ password        │       │ description         │       │ address              │
+│ phone           │       │ type (ENUM)         │       │ postal_code          │
+│ role (ENUM)     │       │ price               │       │ country              │
+│ created_at      │       │ city                │       │ capacity             │
+│ updated_at      │       │ is_active           │       │ bedrooms             │
+└─────────────────┘       │ created_at          │       │ bathrooms            │
+        │                 │ updated_at          │       │ amenities (JSON)     │
+        │                 └─────────────────────┘       │ rules                │
+        │                         │                     └──────────────────────┘
+        │                         │
+        │                         │       ┌──────────────────────┐
+        │                         └──────►│  ANNOUNCES_PICTURES  │
+        │                                 ├──────────────────────┤
+        │                                 │ id (PK)              │
+        │                                 │ announces_id (FK)    │
+        │                                 │ is_cover             │
+        │                                 │ url                  │
+        │                                 │ filename             │
+        │                                 │ created_at           │
+        │                                 └──────────────────────┘
+        │
+        │         ┌─────────────────────┐
+        └────────►│    RESERVATIONS     │
+                  ├─────────────────────┤
+                  │ id (PK)             │
+                  │ user_id (FK)        │
+                  │ announce_id (FK)    │
+                  │ title               │
+                  │ total_price         │
+                  │ arrive_at           │
+                  │ leave_at            │
+                  │ reserved_at         │
+                  │ status (ENUM)       │
+                  │ city                │
+                  │ address             │
+                  │ contact_host        │
+                  │ guest_count         │
+                  └─────────────────────┘
+
+        │         ┌─────────────────────┐
+        └────────►│      REVIEWS        │
+                  ├─────────────────────┤
+                  │ id (PK)             │
+                  │ user_id (FK)        │
+                  │ announce_id (FK)    │
+                  │ rating (1-5)        │
+                  │ comment             │
+                  │ created_at          │
+                  │ updated_at          │
+                  └─────────────────────┘
+                  (UNIQUE: user_id + announce_id)
+
+TABLE: token_blacklist (pour JWT révoqués)
+- id, token, expires_at, created_at
+
+
+ENUMS:
+------
+UserRole:          USER, ADMIN
+AnnounceType:      APARTMENT, HOUSE, VILLA, STUDIO, ROOM, OTHER
+ReservationStatus: PENDING, CONFIRMED, CANCELLED, COMPLETED
+
+
+================================================================================
+                           🛣️ ENDPOINTS API
+================================================================================
+
+BASE URL: http://localhost:8080
+
+ENDPOINTS:
+  /api/auth         - Authentification
+  /api/users        - Utilisateurs
+  /api/announces    - Annonces
+  /api/reservations - Réservations
+  /api/reviews      - Avis/Commentaires
+
+--------------------------------------------------------------------------------
+🔐 AUTHENTIFICATION (/api/auth)
+--------------------------------------------------------------------------------
+
+POST /api/auth/register
+  - Description: Inscription d'un nouvel utilisateur
+  - Auth requise: NON
+  - Body: { username, email, password, phone? }
+  - Retourne: { user, accessToken, refreshToken }
+
+POST /api/auth/login
+  - Description: Connexion utilisateur
+  - Auth requise: NON
+  - Body: { email, password }
+  - Retourne: { user, accessToken, refreshToken }
+
+POST /api/auth/refresh
+  - Description: Rafraîchir le token d'accès
+  - Auth requise: NON
+  - Body: { refreshToken }
+  - Retourne: { accessToken, refreshToken }
+
+POST /api/auth/logout
+  - Description: Déconnexion (blacklist le token)
+  - Auth requise: OUI
+  - Body: { refreshToken? }
+  - Retourne: { message }
+
+GET /api/auth/me
+  - Description: Profil de l'utilisateur connecté
+  - Auth requise: OUI
+  - Retourne: User avec ses annonces et réservations
+
+--------------------------------------------------------------------------------
+👤 UTILISATEURS (/api/users)
+--------------------------------------------------------------------------------
+
+GET /api/users
+  - Description: Liste tous les utilisateurs
+  - Auth requise: NON
+  - Query params: page, limit
+  - Retourne: User[] ou { data, meta } si paginé
+
+GET /api/users/:id
+  - Description: Détails d'un utilisateur avec ses annonces
+  - Auth requise: NON
+  - Retourne: User (sans password)
+
+POST /api/users
+  - Description: Créer un utilisateur
+  - Auth requise: NON
+  - Body: { username, email, password, phone? }
+  - Retourne: User créé
+
+PUT /api/users/:id
+  - Description: Modifier un utilisateur
+  - Auth requise: OUI
+  - Body: { username?, email?, phone? } (password ignoré)
+  - Retourne: User modifié
+
+DELETE /api/users/:id
+  - Description: Supprimer un utilisateur
+  - Auth requise: OUI
+  - Retourne: 204 No Content
+
+--------------------------------------------------------------------------------
+🏠 ANNONCES (/api/announces)
+--------------------------------------------------------------------------------
+
+GET /api/announces
+  - Description: Liste les annonces avec filtres
+  - Auth requise: NON
+  - Query params: page, limit, city, type, minPrice, maxPrice, capacity
+  - Retourne: Announce[] avec user, info, pictures
+
+GET /api/announces/:id
+  - Description: Détails d'une annonce
+  - Auth requise: NON
+  - Retourne: Announce avec toutes les relations
+
+GET /api/announces/user/:userId
+  - Description: Annonces d'un utilisateur spécifique
+  - Auth requise: NON
+  - Retourne: Announce[]
+
+POST /api/announces
+  - Description: Créer une annonce
+  - Auth requise: OUI
+  - Body: {
+      title, description?, type, price, city?,
+      info?: { content?, address?, capacity?, bedrooms?, bathrooms?, amenities?, rules? }
+    }
+  - Retourne: Announce créée
+
+PUT /api/announces/:id
+  - Description: Modifier une annonce
+  - Auth requise: OUI (propriétaire ou admin)
+  - Body: { title?, description?, type?, price?, city?, isActive? }
+  - Retourne: Announce modifiée
+
+DELETE /api/announces/:id
+  - Description: Supprimer une annonce
+  - Auth requise: OUI (propriétaire ou admin)
+  - Retourne: 204 No Content
+
+--------------------------------------------------------------------------------
+📅 RÉSERVATIONS (/api/reservations)
+--------------------------------------------------------------------------------
+
+GET /api/reservations
+  - Description: Mes réservations (admin voit tout)
+  - Auth requise: OUI
+  - Query params: page, limit
+  - Retourne: Reservation[]
+
+GET /api/reservations/:id
+  - Description: Détails d'une réservation
+  - Auth requise: OUI (propriétaire, host ou admin)
+  - Retourne: Reservation avec announce et user
+
+GET /api/reservations/announce/:announceId
+  - Description: Réservations d'une annonce
+  - Auth requise: OUI
+  - Retourne: Reservation[]
+
+POST /api/reservations
+  - Description: Créer une réservation
+  - Auth requise: OUI
+  - Body: { announceId, arriveAt, leaveAt, guestCount?, title? }
+  - Note: Vérifie automatiquement la disponibilité et calcule le prix total
+  - Retourne: Reservation créée ou erreur 400 si non disponible
+
+POST /api/reservations/check-availability
+  - Description: Vérifier la disponibilité d'une annonce
+  - Auth requise: NON
+  - Body: { announceId, arriveAt, leaveAt }
+  - Retourne: { available: boolean }
+
+PUT /api/reservations/:id
+  - Description: Modifier une réservation (statut)
+  - Auth requise: OUI
+  - Body: { status } 
+  - Note: User peut seulement CANCELLED, host/admin peut tout
+  - Retourne: Reservation modifiée
+
+DELETE /api/reservations/:id
+  - Description: Supprimer une réservation
+  - Auth requise: OUI (propriétaire ou admin)
+  - Retourne: 204 No Content
+
+--------------------------------------------------------------------------------
+⭐ AVIS/REVIEWS (/api/reviews)
+--------------------------------------------------------------------------------
+
+GET /api/reviews/announce/:announceId
+  - Description: Liste les avis d'une annonce
+  - Auth requise: NON
+  - Query params: page, limit
+  - Retourne: Review[] avec user (id, username)
+
+GET /api/reviews/announce/:announceId/rating
+  - Description: Note moyenne d'une annonce
+  - Auth requise: NON
+  - Retourne: { average: number, count: number }
+
+GET /api/reviews/user/:userId
+  - Description: Liste les avis d'un utilisateur
+  - Auth requise: NON
+  - Query params: page, limit
+  - Retourne: Review[] avec announce (id, title, city)
+
+GET /api/reviews/:id
+  - Description: Détails d'un avis
+  - Auth requise: NON
+  - Retourne: Review avec user et announce
+
+POST /api/reviews
+  - Description: Créer un avis (nécessite une réservation COMPLETED)
+  - Auth requise: OUI
+  - Body: { announceId, rating (1-5), comment? }
+  - Note: Un utilisateur ne peut laisser qu'un seul avis par annonce
+  - Retourne: Review créé ou erreur 403/409
+
+PUT /api/reviews/:id
+  - Description: Modifier un avis
+  - Auth requise: OUI (propriétaire ou admin)
+  - Body: { rating?, comment? }
+  - Retourne: Review modifié
+
+DELETE /api/reviews/:id
+  - Description: Supprimer un avis
+  - Auth requise: OUI (propriétaire ou admin)
+  - Retourne: 204 No Content
+
+
+================================================================================
+                        🔒 AUTHENTIFICATION JWT
+================================================================================
+
+HEADER:
+  Authorization: Bearer <accessToken>
+
+TOKEN PAYLOAD:
+  {
+    userId: number,
+    role: "USER" | "ADMIN",
+    iat: timestamp,
+    exp: timestamp
+  }
+
+DURÉES:
+  - Access Token: 1 heure (3600 secondes)
+  - Refresh Token: 7 jours (604800 secondes)
+
+FLUX:
+  1. Login/Register → accessToken + refreshToken
+  2. Requêtes API → Header Authorization: Bearer <accessToken>
+  3. Token expiré → POST /api/auth/refresh avec refreshToken
+  4. Logout → Token ajouté à la blacklist
+
+
+================================================================================
+                        📦 FORMATS DE RÉPONSE
+================================================================================
+
+LISTE SIMPLE:
+  [{ ... }, { ... }, ...]
+
+LISTE PAGINÉE (avec ?page=X&limit=Y):
+  {
+    "data": [{ ... }, { ... }],
+    "meta": {
+      "total": 100,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 10
+    }
+  }
+
+ERREUR:
+  {
+    "message": "Description de l'erreur",
+    "errors": [
+      { "field": "email", "message": "Email invalide" }
+    ]
+  }
+
+CODES HTTP:
+  200 - OK (GET, PUT)
+  201 - Created (POST)
+  204 - No Content (DELETE)
+  400 - Bad Request (validation error)
+  401 - Unauthorized (pas de token ou token invalide)
+  403 - Forbidden (pas les droits)
+  404 - Not Found
+  409 - Conflict (email déjà utilisé)
+  500 - Internal Server Error
+
+
+================================================================================
+                        📝 EXEMPLES DE BODY
+================================================================================
+
+REGISTER:
+{
+  "username": "johndoe",
+  "email": "john@example.com",
+  "password": "password123",
+  "phone": "+33612345678"
+}
+
+LOGIN:
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+
+CRÉER ANNONCE:
+{
+  "title": "Bel appartement au centre de Paris",
+  "description": "Appartement lumineux avec vue sur la Tour Eiffel",
+  "type": "APARTMENT",
+  "price": 150.00,
+  "city": "Paris",
+  "info": {
+    "address": "123 Avenue des Champs-Élysées",
+    "postalCode": "75008",
+    "country": "France",
+    "capacity": 4,
+    "bedrooms": 2,
+    "bathrooms": 1,
+    "amenities": "[\"WiFi\",\"Cuisine équipée\",\"Parking\",\"Climatisation\"]",
+    "rules": "Non-fumeur, pas d'animaux"
+  }
+}
+
+CRÉER RÉSERVATION:
+{
+  "announceId": 1,
+  "arriveAt": "2026-02-15T14:00:00.000Z",
+  "leaveAt": "2026-02-20T10:00:00.000Z",
+  "guestCount": 2,
+  "title": "Vacances de février"
+}
+
+VÉRIFIER DISPONIBILITÉ:
+{
+  "announceId": 1,
+  "arriveAt": "2026-02-15",
+  "leaveAt": "2026-02-20"
+}
+
+CRÉER AVIS:
+{
+  "announceId": 1,
+  "rating": 5,
+  "comment": "Superbe séjour ! L'appartement était impeccable et l'hôte très accueillant."
+}
+
+MODIFIER AVIS:
+{
+  "rating": 4,
+  "comment": "Très bon séjour, petit bémol sur le bruit de la rue."
+}
+
+
+================================================================================
+                        🚀 STACK TECHNIQUE
+================================================================================
+
+Runtime:      Node.js 18+
+Framework:    Express.js 4.x
+Langage:      TypeScript 5.x
+ORM:          Prisma 5.x
+BDD:          PostgreSQL
+Auth:         JWT (jsonwebtoken + bcrypt)
+Validation:   express-validator
+Doc API:      Swagger (swagger-jsdoc + swagger-ui-express)
+Tests:        Jest + Supertest
+Sécurité:     Helmet, CORS, express-rate-limit
+Logging:      Morgan
+
+
+================================================================================
+                        🎯 FONCTIONNALITÉS CLÉS
+================================================================================
+
+1. GESTION DES UTILISATEURS
+   - Inscription avec validation email et mot de passe (min 6 caractères)
+   - Connexion sécurisée avec bcrypt
+   - Rôles: USER (standard) et ADMIN (tous les droits)
+   - Profil avec annonces et réservations
+
+2. ANNONCES DE LOGEMENTS
+   - CRUD complet
+   - 6 types de logements (Appartement, Maison, Villa, Studio, Chambre, Autre)
+   - Recherche avec filtres (ville, type, prix min/max, capacité)
+   - Pagination sur les listes
+   - Informations détaillées (adresse, capacité, équipements, règles)
+   - Multi-images avec image de couverture
+
+3. RÉSERVATIONS
+   - Vérification automatique de disponibilité (pas de chevauchement)
+   - Calcul automatique du prix total (prix/nuit × nombre de nuits)
+   - 4 statuts: En attente, Confirmée, Annulée, Terminée
+   - Gestion des droits (user annule, host confirme)
+
+4. AVIS/REVIEWS
+   - Notes de 1 à 5 étoiles
+   - Commentaires optionnels
+   - Nécessite une réservation COMPLETED pour laisser un avis
+   - Un seul avis par utilisateur par annonce
+   - Note moyenne calculée automatiquement
+   - Propriétaire ou admin peut modifier/supprimer
+
+5. SÉCURITÉ
+   - JWT avec expiration
+   - Refresh token pour renouvellement
+   - Blacklist des tokens révoqués
+   - Rate limiting (100 req/15min général, 10 req/15min auth)
+   - Validation des entrées
+   - Protection des routes sensibles
+
+6. STOCKAGE IMAGES
+   - Support S3/MinIO pour le stockage
+   - URLs pour les images
+   - Une image de couverture par annonce
+
+
+================================================================================
+                           📍 URLs
+================================================================================
+
+API:            http://localhost:8080
+Documentation:  http://localhost:8080/api-docs
+Health Check:   http://localhost:8080/health
+
+
+================================================================================
+                      🔑 COMPTE TEST ADMIN
+================================================================================
+
+Email:    admin@etnair.com
+Password: password123
+
+
+================================================================================
+                    💻 COMMANDES UTILES
+================================================================================
+
+# Installer les dépendances
+npm install
+
+# Lancer en développement
+npm run dev
+
+# Générer le client Prisma
+npm run prisma:generate
+
+# Appliquer les migrations
+npm run prisma:migrate
+
+# Ouvrir Prisma Studio (GUI BDD)
+npm run prisma:studio
+
+# Peupler la base avec des données fictives
+npm run seed
+
+# Lancer les tests
+npm test
+
+# Lancer les tests avec couverture
+npm run test:coverage

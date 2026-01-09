@@ -1,0 +1,23 @@
+# Fichiers à ignorer
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Build outputs
+api/src/dist/
+front/src/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+*.sqlite
+*.db
+
+# Prisma
+api/src/prisma/migrations/*
+!api/src/prisma/migrations/migration_lock.toml

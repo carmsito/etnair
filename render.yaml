@@ -1,0 +1,45 @@
+# Configuration Render.com pour ETNAir
+# Déploiement gratuit avec PostgreSQL + API + Frontend
+
+databases:
+  - name: etnair-db
+    databaseName: etnair_db
+    user: etnair_user
+    plan: free
+
+services:
+  # API Backend
+  - type: web
+    name: etnair-api
+    runtime: node
+    plan: free
+    buildCommand: cd api/src && npm install && npx prisma generate && npm run build
+    startCommand: cd api/src && npx prisma migrate deploy && node dist/app.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: etnair-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+    healthCheckPath: /health
+
+  # Frontend Vue.js
+  - type: web
+    name: etnair-front
+    runtime: node
+    plan: free
+    buildCommand: cd front/src && npm install && npm run build
+    startCommand: cd front/src && npm run preview -- --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: etnair-api
+          envVarKey: RENDER_EXTERNAL_URL
