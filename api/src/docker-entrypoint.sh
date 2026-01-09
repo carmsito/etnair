@@ -7,9 +7,14 @@ echo "🚀 Démarrage de l'API ETNAir..."
 echo "⏳ Attente de la base de données..."
 sleep 5
 
+# Vérifier le schéma Prisma
+echo "📂 Vérification du schéma Prisma..."
+ls -la /app/src/prisma/ || echo "Dossier prisma non trouvé"
+
 # Exécuter les migrations Prisma
 echo "📦 Exécution des migrations Prisma..."
-npx prisma migrate deploy
+cd /app/src
+npx prisma migrate deploy --schema=./prisma/schema.prisma
 
 # Exécuter les seeds (seulement si la DB est vide)
 echo "🌱 Vérification et exécution des seeds..."
@@ -17,4 +22,5 @@ npx ts-node seeders/seed.ts || echo "Seeds déjà exécutés ou erreur ignorée"
 
 # Démarrer l'application
 echo "✅ Démarrage du serveur..."
+cd /app
 exec "$@"
