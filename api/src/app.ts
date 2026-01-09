@@ -98,9 +98,9 @@ favoritesController(favoritesRouter);
 // Monter les routes
 app.use('/api/auth', authRouter);
 app.use('/api/users', checkAuth, usersRouter);
-app.use('/api/announces', checkAuth, announcesRouter);
+app.use('/api/announces', announcesRouter);  // GET public, POST/PUT/DELETE protégés
 app.use('/api/reservations', checkAuth, reservationsRouter);
-app.use('/api/reviews', checkAuth, reviewsRouter);
+app.use('/api/reviews', reviewsRouter);  // GET public, POST/PUT/DELETE protégés
 app.use('/api/favorites', checkAuth, favoritesRouter);
 
 // Gestion des erreurs
