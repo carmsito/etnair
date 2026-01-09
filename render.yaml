@@ -14,7 +14,7 @@ services:
     runtime: node
     plan: free
     buildCommand: cd api/src && npm install && npx prisma generate && npm run build
-    startCommand: cd api/src && npx prisma migrate deploy && node dist/app.js
+    startCommand: cd api/src && bash start.sh
     envVars:
       - key: DATABASE_URL
         fromDatabase:
