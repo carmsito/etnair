@@ -6,6 +6,9 @@ dist/
 *.log
 .DS_Store
 
+# Minikube binary (too large for GitHub)
+minikube
+
 # Build outputs
 api/src/dist/
 front/src/dist/
