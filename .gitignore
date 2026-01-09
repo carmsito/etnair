@@ -21,6 +21,5 @@ front/src/dist/
 *.sqlite
 *.db
 
-# Prisma
-api/src/prisma/migrations/*
-!api/src/prisma/migrations/migration_lock.toml
+# Prisma - NE PAS ignorer les migrations !
+# Les migrations doivent être versionnées
